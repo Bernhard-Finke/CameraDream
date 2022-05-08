@@ -41,11 +41,6 @@ def deep_dream(deepdream, frame, i, resize_factor, size, octave_bool, steps, ste
 
     dream_array = np.array(dream_img)
 
-    if dream_array.shape != original_img.shape:
-        original_img = cv2.resize(original_img, [dream_array.shape[1], dream_array.shape[0]])
-
-    dream_array = cv2.addWeighted(dream_array, blend, original_img, 1-blend, gamma=0)
-
     original_img = crop_pic(dream_array, zoom_factor)
     original_img = cv2.resize(original_img, dsize=size, interpolation=cv2.INTER_CUBIC)
 
@@ -59,6 +54,8 @@ def deep_dream(deepdream, frame, i, resize_factor, size, octave_bool, steps, ste
             dream_img = run_deep_dream_simple(img=original_img, dd_model=deepdream, steps=steps,
                                               step_size=step_size)
         original_img = np.array(dream_img)
+
+    dream_array = cv2.addWeighted(original_img, blend, np.array(frame), 1-blend, gamma=0)
 
     if i % photo_interval == 0 and take_photos:
         dream_as_img = tf.keras.preprocessing.image.array_to_img(original_img)
@@ -171,23 +168,23 @@ def main(octaves, frames, names, steps, step_size, octave_scale, octave_range, z
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--octave_bool', help="whether to use octaves", type=bool, default=True)
+    parser.add_argument('--octave_bool', help="whether to use octaves", type=bool, default=False)
     parser.add_argument('--frames', help="number of pictures", type=int, default=5)
-    parser.add_argument('--layers', help="which layers to include", nargs="+", default=['activation', 'mixed5', 'conv2d_28'])
-    parser.add_argument('--steps', help="number of steps", type=int, default=8)
-    parser.add_argument('--step_size', help="step size", type=float, default=0.028)
+    parser.add_argument('--layers', help="which layers to include", nargs="+", default=['activation'])
+    parser.add_argument('--steps', help="number of steps", type=int, default=1)
+    parser.add_argument('--step_size', help="step size", type=float, default=0.28)
     parser.add_argument('--octave_scale', help="octave scale", type=float, default=1.001)
     parser.add_argument('--octave_range_1', help="first value for octave range", type=int, default=543)
     parser.add_argument('--octave_range_2', help="second value for octave range", type=int, default=548)
     parser.add_argument('--zoom_factor', help="zoom per frame", type=float, default=.985)
-    parser.add_argument('--resize_factor', help="how much to decrease image quality", type=float, default=.4)
+    parser.add_argument('--resize_factor', help="how much to decrease image quality", type=float, default=.2)
     parser.add_argument('--take_photos', help="whether to save intermediate photos", type=bool, default=True)
     parser.add_argument('--photo_interval', help="after how many photos to save", type=int, default=1)
     parser.add_argument('--tile_size', help="tile size for octave dream", type=int, default=512)
     parser.add_argument('--no_camera', help="if true, dreams on last image", type=bool, default=True)
     parser.add_argument('--re_dream', help="whether to redream on the full quality image", type=bool, default=True)
     parser.add_argument('--blend', help="how much to blend last image, 1=only current image, 0=only last", type=float, default=0.8)
-    parser.add_argument('--extension', help="if no_camera, file extension of image to open", type=str, default=".jpg")
+    parser.add_argument('--extension', help="if no_camera, file extension of image to open", type=str, default=".png")
 
     args=parser.parse_args()
 
