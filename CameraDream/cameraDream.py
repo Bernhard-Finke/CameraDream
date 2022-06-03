@@ -21,7 +21,7 @@ def take_photo(vc):
 
 
 
-def deep_dream(deepdream, frame, i, resize_factor, size, octave_bool, steps, step_size, octave_scale, octaves,
+def deep_dream(deepdream, frame, last_image, i, resize_factor, size, octave_bool, steps, step_size, octave_scale, octaves,
                zoom_factor, take_photos, tile_size, photo_interval, redream, blend):
     
     size_small = [int(size[0]*resize_factor), int(size[1]*resize_factor)]
@@ -55,7 +55,9 @@ def deep_dream(deepdream, frame, i, resize_factor, size, octave_bool, steps, ste
                                               step_size=step_size)
         original_img = np.array(dream_img)
 
-    dream_array = cv2.addWeighted(original_img, blend, np.array(frame), 1-blend, gamma=0)
+    if last_image != "":
+        original_img = cv2.addWeighted(original_img, blend, np.array(last_image), 1-blend, gamma=0)
+
 
     if i % photo_interval == 0 and take_photos:
         dream_as_img = tf.keras.preprocessing.image.array_to_img(original_img)
@@ -71,14 +73,14 @@ def project(image):
 
 
 def complete_run(vc, deepdream, i, size, octaves, steps, step_size, octave_scale, octave_range, zoom_factor, resize_factor,
-                 take_photos, tile_size, frame, photo_interval, redream, no_camera, blend):
+                 take_photos, tile_size, last_image, photo_interval, redream, no_camera, blend):
     start = time.time()
 
     if not no_camera:
-        image = take_photo(vc=vc)
+        frame = take_photo(vc=vc)
     else:
-        image = frame
-    image = deep_dream(deepdream=deepdream, frame=image, i=i, size=size, resize_factor=resize_factor,
+        frame = last_image
+    image = deep_dream(deepdream=deepdream, frame=frame, last_image=last_image, i=i, size=size, resize_factor=resize_factor,
                        octave_bool=octaves, steps=steps, step_size=step_size, octave_scale=octave_scale,
                        octaves=octave_range, zoom_factor=zoom_factor, take_photos=take_photos,
                        tile_size=tile_size, photo_interval=photo_interval, redream=redream, blend=blend)
@@ -102,15 +104,15 @@ def main(octaves, frames, names, steps, step_size, octave_scale, octave_range, z
     deepdream = dreamer(dream_model)
 
     # get dimensions of second monitor
-    display2_x = get_monitors()[0].width
+    display2_x = 0 #get_monitors()[0].width
     display2_y = get_monitors()[0].height
 
     # open image and get size
     if no_camera:
         image = Image.open('image' + extension)
         img_shape = image.size
-        height = img_shape[0]
-        width = img_shape[1]
+        height = img_shape[1]
+        width = img_shape[0]
         vc = None
     # open camera and get camera dimensions
     else:
@@ -143,7 +145,7 @@ def main(octaves, frames, names, steps, step_size, octave_scale, octave_range, z
             image = complete_run(vc=vc, deepdream=deepdream, i=i, octaves=octaves, steps=steps, step_size=step_size,
                                  octave_scale=octave_scale, octave_range=octave_range, zoom_factor=zoom_factor,
                                  resize_factor=resize_factor, size=img_shape, take_photos=take_photos,
-                                 tile_size=tile_size, frame=image, photo_interval=photo_interval, redream=redream,
+                                 tile_size=tile_size, last_image=image, photo_interval=photo_interval, redream=redream,
                                  no_camera=no_camera, blend=blend)
             if cv2.waitKey(1) == 13:
                 cv2.imwrite("out" + str(i) + ".jpg", image)
@@ -153,7 +155,7 @@ def main(octaves, frames, names, steps, step_size, octave_scale, octave_range, z
             image = complete_run(vc=vc, deepdream=deepdream, i=i, octaves=octaves, steps=steps, step_size=step_size,
                                  octave_scale=octave_scale, octave_range=octave_range, zoom_factor=zoom_factor,
                                  resize_factor=resize_factor, size=img_shape, take_photos=take_photos,
-                                 tile_size=tile_size, frame=image, photo_interval=photo_interval, redream=redream,
+                                 tile_size=tile_size, last_image=image, photo_interval=photo_interval, redream=redream,
                                  no_camera=no_camera, blend=blend)
 
     # close camera and other windows
@@ -169,21 +171,21 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--octave_bool', help="whether to use octaves", type=bool, default=False)
-    parser.add_argument('--frames', help="number of pictures", type=int, default=5)
-    parser.add_argument('--layers', help="which layers to include", nargs="+", default=['activation'])
+    parser.add_argument('--frames', help="number of pictures", type=int, default=-1)
+    parser.add_argument('--layers', help="which layers to include", nargs="+", default=['conv2d_33'])
     parser.add_argument('--steps', help="number of steps", type=int, default=1)
-    parser.add_argument('--step_size', help="step size", type=float, default=0.28)
+    parser.add_argument('--step_size', help="step size", type=float, default=0.24)
     parser.add_argument('--octave_scale', help="octave scale", type=float, default=1.001)
     parser.add_argument('--octave_range_1', help="first value for octave range", type=int, default=543)
     parser.add_argument('--octave_range_2', help="second value for octave range", type=int, default=548)
-    parser.add_argument('--zoom_factor', help="zoom per frame", type=float, default=.985)
-    parser.add_argument('--resize_factor', help="how much to decrease image quality", type=float, default=.2)
+    parser.add_argument('--zoom_factor', help="zoom per frame", type=float, default=.96)
+    parser.add_argument('--resize_factor', help="how much to decrease image quality", type=float, default=.4)
     parser.add_argument('--take_photos', help="whether to save intermediate photos", type=bool, default=True)
-    parser.add_argument('--photo_interval', help="after how many photos to save", type=int, default=1)
+    parser.add_argument('--photo_interval', help="after how many photos to save", type=int, default=100)
     parser.add_argument('--tile_size', help="tile size for octave dream", type=int, default=512)
-    parser.add_argument('--no_camera', help="if true, dreams on last image", type=bool, default=True)
+    parser.add_argument('--no_camera', help="if true, dreams on last image", type=bool, default=False)
     parser.add_argument('--re_dream', help="whether to redream on the full quality image", type=bool, default=True)
-    parser.add_argument('--blend', help="how much to blend last image, 1=only current image, 0=only last", type=float, default=0.8)
+    parser.add_argument('--blend', help="how much to blend last image, 1=only current image, 0=only last", type=float, default=0.5)
     parser.add_argument('--extension', help="if no_camera, file extension of image to open", type=str, default=".png")
 
     args=parser.parse_args()
